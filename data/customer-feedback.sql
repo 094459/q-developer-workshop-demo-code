@@ -1,67 +1,56 @@
 -- Users table
-CREATE TABLE users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email VARCHAR NOT NULL UNIQUE,
-    password_hash VARCHAR NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE Users (
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Surveys table
-CREATE TABLE surveys (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title VARCHAR NOT NULL,
+CREATE TABLE Surveys (
+    survey_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title VARCHAR(255) NOT NULL,
     description TEXT,
-    creator_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME,
-    FOREIGN KEY (creator_id) REFERENCES users(id)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
 );
 
--- Survey options table
-CREATE TABLE survey_options (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- Questions table
+CREATE TABLE Questions (
+    question_id INTEGER PRIMARY KEY AUTOINCREMENT,
     survey_id INTEGER NOT NULL,
-    text VARCHAR NOT NULL,
-    FOREIGN KEY (survey_id) REFERENCES surveys(id)
+    question_text TEXT NOT NULL,
+    question_order INTEGER NOT NULL,
+    FOREIGN KEY (survey_id) REFERENCES Surveys(survey_id)
 );
 
--- Survey responses table
-CREATE TABLE survey_responses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+-- Options table
+CREATE TABLE Options (
+    option_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_id INTEGER NOT NULL,
+    option_text TEXT NOT NULL,
+    option_order INTEGER NOT NULL,
+    FOREIGN KEY (question_id) REFERENCES Questions(question_id)
+);
+
+-- Responses table
+CREATE TABLE Responses (
+    response_id INTEGER PRIMARY KEY AUTOINCREMENT,
     survey_id INTEGER NOT NULL,
+    respondent_email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (survey_id) REFERENCES Surveys(survey_id)
+);
+
+-- AnswerChoices table
+CREATE TABLE AnswerChoices (
+    answer_choice_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    response_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
     option_id INTEGER NOT NULL,
-    respondent_email VARCHAR NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (survey_id) REFERENCES surveys(id),
-    FOREIGN KEY (option_id) REFERENCES survey_options(id)
+    FOREIGN KEY (response_id) REFERENCES Responses(response_id),
+    FOREIGN KEY (question_id) REFERENCES Questions(question_id),
+    FOREIGN KEY (option_id) REFERENCES Options(option_id)
 );
-
--- Trigger to update the 'updated_at' field in the surveys table
-CREATE TRIGGER update_survey_timestamp 
-AFTER UPDATE ON surveys
-FOR EACH ROW
-BEGIN
-    UPDATE surveys SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
-END;
-
--- Trigger to check the number of options for a survey (on insert)
-CREATE TRIGGER check_survey_options_insert
-AFTER INSERT ON survey_options
-FOR EACH ROW
-BEGIN
-    SELECT CASE
-        WHEN (SELECT COUNT(*) FROM survey_options WHERE survey_id = NEW.survey_id) > 5 THEN
-            RAISE(ABORT, 'A survey cannot have more than 5 options')
-    END;
-END;
-
--- Trigger to check the number of options for a survey (on delete)
-CREATE TRIGGER check_survey_options_delete
-AFTER DELETE ON survey_options
-FOR EACH ROW
-BEGIN
-    SELECT CASE
-        WHEN (SELECT COUNT(*) FROM survey_options WHERE survey_id = OLD.survey_id) < 2 THEN
-            RAISE(ABORT, 'A survey must have at least 2 options')
-    END;
-END;
