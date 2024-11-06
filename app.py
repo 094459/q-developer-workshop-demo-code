@@ -10,6 +10,8 @@ from sqlalchemy.sql import func
 from marshmallow import Schema, fields, validate, ValidationError
 from flask_migrate import Migrate
 import csv
+import os
+import waitress
 from io import BytesIO, StringIO
 from flask import send_file
 
@@ -271,4 +273,12 @@ def logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    # Get debug mode from environment variable, default to False
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    
+    # Use a production-ready server when debug is False
+    if debug_mode:
+        app.run(debug=True)
+    else:
+        from waitress import serve
+        serve(app, host='127.0.0.1', port=5000)
