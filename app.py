@@ -12,7 +12,7 @@ from marshmallow import Schema, fields, validate, ValidationError
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm, CSRFProtect
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, RadioField, FieldList
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp, Optional
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import bleach
@@ -144,7 +144,7 @@ class CreateSurveyForm(FlaskForm):
 
 class SurveySubmissionForm(FlaskForm):
     option = RadioField('Option', coerce=int, validators=[DataRequired()])
-    email = StringField('Email', validators=[Email(), Length(max=100)])
+    email = StringField('Email', validators=[Optional(), Email(), Length(max=100)])
     comment = TextAreaField('Comment', validators=[Length(max=500)])
     submit = SubmitField('Submit')
 

@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 *.db
-
+app.log.*
 # C extensions
 *.so
 
