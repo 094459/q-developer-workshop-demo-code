@@ -8,7 +8,6 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from marshmallow import Schema, fields, validate, ValidationError
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///customer_survey.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -160,6 +159,40 @@ def survey(survey_id):
         return redirect(url_for('index'))
     
     return render_template('survey.html', title=survey.title, survey=survey)
+
+@app.route('/survey/<int:survey_id>/results')
+@login_required
+def survey_results(survey_id):
+    # Get the survey and verify the current user is the creator
+    survey = Survey.query.get_or_404(survey_id)
+    if survey.creator_id != current_user.id:
+        flash('You do not have permission to view these results')
+        return redirect(url_for('index'))
+    
+    # Get all feedback for this survey
+    feedbacks = Feedback.query.filter_by(survey_id=survey_id).all()
+    
+    # Calculate results for each option
+    results = {}
+    total_responses = len(feedbacks)
+    
+    for option in survey.options:
+        option_feedbacks = [f for f in feedbacks if f.option_id == option.id]
+        count = len(option_feedbacks)
+        percentage = (count / total_responses * 100) if total_responses > 0 else 0
+        
+        results[option.id] = {
+            'text': option.text,
+            'count': count,
+            'percentage': round(percentage, 1),
+            'comments': [f.comment for f in option_feedbacks if f.comment]
+        }
+    
+    return render_template('survey_results.html',
+                         title=f'Results - {survey.title}',
+                         survey=survey,
+                         results=results,
+                         total_responses=total_responses)
 
 @app.route('/logout')
 @login_required

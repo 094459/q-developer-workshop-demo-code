@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .survey-info {
+            margin-bottom: 20px;
+        }
+        .results-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .option-result {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .option-text {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            background-color: #e0e0e0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            background-color: #4CAF50;
+            height: 100%;
+            text-align: right;
+            padding-right: 5px;
+            color: white;
+            line-height: 20px;
+        }
+        .comments {
+            margin-top: 10px;
+        }
+        .comment {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="results-container">
+        <h1>Survey Results: {{ survey.title }}</h1>
+        
+        <div class="survey-info">
+            <p><strong>Total Responses:</strong> {{ total_responses }}</p>
+            {% if survey.description %}
+                <p><strong>Description:</strong> {{ survey.description }}</p>
+            {% endif %}
+        </div>
+
+        {% for option_id, result in results.items() %}
+            <div class="option-result">
+                <div class="option-text">{{ result.text }}</div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ result.percentage }}%">
+                        {{ result.percentage }}% ({{ result.count }} votes)
+                    </div>
+                </div>
+                {% if result.comments %}
+                    <div class="comments">
+                        <h4>Comments:</h4>
+                        {% for comment in result.comments %}
+                            <div class="comment">{{ comment }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
