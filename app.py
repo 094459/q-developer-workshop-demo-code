@@ -157,7 +157,7 @@ def index():
     surveys = []
     if current_user.is_authenticated:
         surveys = Survey.query.filter_by(creator_id=current_user.id).all()
-    return render_template('index.html', title='Home', survey=surveys)
+    return render_template('index.html', title='Home', surveys=surveys)
 
 @app.route('/survey/<int:survey_id>', methods=['GET', 'POST'])
 def survey(survey_id):
@@ -261,8 +261,7 @@ def export_survey_results(survey_id):
 @app.route('/about')
 def about():
     wisdom = get_yoda_wisdom()  # This function should be defined in your app.py
-    return render_template('about.html', yoda=wisdom)
-
+    return render_template('about.html', wisdom=wisdom)
 @app.route('/logout')
 @login_required
 def logout():
