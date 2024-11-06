@@ -56,6 +56,22 @@
             padding: 10px;
             margin-top: 5px;
         }
+        .return-link {
+        text-align: center;
+        margin-top: 20px;
+    }
+    .return-link a {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #4CAF50;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+    }
+    .return-link a:hover {
+        background-color: #45a049;
+    }
     </style>
 </head>
 <body>
@@ -88,5 +104,9 @@
             </div>
         {% endfor %}
     </div>
+        <!-- Add the following code for the "Return to Homepage" link -->
+        <div class="return-link">
+            <a href="/">Return to Homepage</a>
+        </div>
 </body>
 </html>

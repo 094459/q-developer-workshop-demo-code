@@ -19,7 +19,7 @@
   {% if surveys %}
     <ul>
     {% for survey in surveys %}
-      <li><a href="{{ url_for('survey', survey_id=survey.id) }}">{{ survey.title }}</a></li>
+      <li><a href="{{ url_for('survey', survey_id=survey.id) }}">{{ survey.title }}</a> | <a href="{{ url_for('survey_results', survey_id=survey.id) }}">View Results</a></li>
     {% endfor %}
     </ul>
   {% else %}

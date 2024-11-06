@@ -16,4 +16,9 @@
     <textarea id="comment" name="comment"></textarea>
     <button type="submit">Submit Feedback</button>
 </form>
+
+{% if current_user.is_authenticated and current_user.id == survey.creator_id %}
+<p><a href="{{ url_for('survey_results', survey_id=survey.id) }}">View Results</a></p>
+{% endif %}
+
 {% endblock %}
