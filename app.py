@@ -18,7 +18,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///customer_survey.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key'  # Change this!
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
 
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
@@ -85,6 +84,20 @@ class FeedbackSchema(Schema):
     option_id = fields.Int(required=True)
     email = fields.Email(required=True)
     comment = fields.Str()
+
+def get_yoda_wisdom():
+    import random
+    
+    yoda_quotes = [
+        "Do or do not. There is no try.",
+        "Size matters not. Look at me. Judge me by my size, do you?",
+        "Fear is the path to the dark side.",
+        "Patience you must have, my young Padawan.",
+        "Much to learn, you still have.",
+        "In a dark place we find ourselves, and a little more knowledge lights our way."
+    ]
+    
+    return random.choice(yoda_quotes)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -245,7 +258,10 @@ def export_survey_results(survey_id):
                      as_attachment=True,
                      download_name=filename)
 
-
+@app.route('/about')
+def about():
+    wisdom = get_yoda_wisdom()  # This function should be defined in your app.py
+    return render_template('about.html', wisdom=wisdom)
 
 @app.route('/logout')
 @login_required
