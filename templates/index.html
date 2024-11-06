@@ -1,9 +1,7 @@
 {% extends "base.html" %}
-
 {% block content %}
 <h1>Welcome to Customer Feedback App</h1>
 <p>This application allows you to create surveys and collect feedback from your customers.</p>
-
 {% with messages = get_flashed_messages() %}
   {% if messages %}
     <ul class="flashes">
@@ -13,13 +11,16 @@
     </ul>
   {% endif %}
 {% endwith %}
-
 {% if current_user.is_authenticated %}
   <h2>Your Surveys</h2>
   {% if surveys %}
     <ul>
     {% for survey in surveys %}
-      <li><a href="{{ url_for('survey', survey_id=survey.id) }}">{{ survey.title }}</a> | <a href="{{ url_for('survey_results', survey_id=survey.id) }}">View Results</a></li>
+      <li>
+        <a href="{{ url_for('survey', survey_id=survey.id) }}">{{ survey.title }}</a> | 
+        <a href="{{ url_for('survey_results', survey_id=survey.id) }}">View Results</a> | 
+        <a href="#" class="share-link" data-survey-id="{{ survey.id }}">Share</a>
+      </li>
     {% endfor %}
     </ul>
   {% else %}
@@ -29,4 +30,23 @@
 {% else %}
   <p>Please <a href="{{ url_for('login') }}">login</a> or <a href="{{ url_for('register') }}">register</a> to create and manage surveys.</p>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const shareLinks = document.querySelectorAll('.share-link');
+  shareLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const surveyId = this.getAttribute('data-survey-id');
+      const surveyUrl = `${window.location.origin}/survey/${surveyId}`;
+      
+      navigator.clipboard.writeText(surveyUrl).then(() => {
+        alert('Survey link copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+    });
+  });
+});
+</script>
 {% endblock %}
