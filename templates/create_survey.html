@@ -12,14 +12,87 @@
         {{ form.description.label }}
         {{ form.description() }}
     </div>
-    <div>
-        {{ form.options.label }}
+    <div id="options-container">
+        <label>Options</label>
         {% for option in form.options %}
-            <div>
-                {{ option() }}
+            <div class="option-field">
+                {{ option.label }} {{ option() }}
+                <button type="button" class="remove-option">Remove</button>
             </div>
         {% endfor %}
     </div>
+    <button type="button" id="add-option">Add Option</button>
+    <br><br>
     {{ form.submit() }}
 </form>
+
+<!-- JavaScript for dynamic fields -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addOptionButton = document.getElementById('add-option');
+        const optionsContainer = document.getElementById('options-container');
+        const maxOptions = {{ form.options.max_entries }};
+        let optionCount = {{ form.options.min_entries }};
+
+        addOptionButton.addEventListener('click', function() {
+            if (optionCount >= maxOptions) {
+                alert('Maximum number of options reached.');
+                return;
+            }
+
+            // Create a new div for the option field
+            const newOptionDiv = document.createElement('div');
+            newOptionDiv.className = 'option-field';
+
+            // Create the new input field
+            const newInput = document.createElement('input');
+            newInput.type = 'text';
+            newInput.name = `options-${optionCount}`;
+            newInput.id = `options-${optionCount}`;
+            newInput.required = true;  // Set required for initial two options
+            newInput.maxLength = 200;
+
+            // Create the label for the new input
+            const newLabel = document.createElement('label');
+            newLabel.htmlFor = `options-${optionCount}`;
+            newLabel.textContent = `Option ${optionCount + 1}: `;
+
+            // Create the remove button
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'remove-option';
+            removeButton.textContent = 'Remove';
+
+            // Append elements to the new option div
+            newOptionDiv.appendChild(newLabel);
+            newOptionDiv.appendChild(newInput);
+            newOptionDiv.appendChild(removeButton);
+
+            // Append the new option div to the options container
+            optionsContainer.appendChild(newOptionDiv);
+
+            optionCount++;
+        });
+
+        // Event delegation for remove buttons
+        optionsContainer.addEventListener('click', function(event) {
+            if (event.target && event.target.matches('button.remove-option')) {
+                const optionField = event.target.parentElement;
+                optionsContainer.removeChild(optionField);
+                optionCount--;
+            }
+        });
+    });
+</script>
+
+<!-- Optional: Add some basic styling -->
+<style>
+    .option-field {
+        margin-bottom: 10px;
+    }
+    .option-field input {
+        margin-left: 10px;
+        margin-right: 10px;
+    }
+</style>
 {% endblock %}

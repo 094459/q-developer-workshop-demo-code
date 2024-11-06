@@ -12,7 +12,7 @@ from marshmallow import Schema, fields, validate, ValidationError
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm, CSRFProtect
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, RadioField, FieldList
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp, Optional
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import bleach
@@ -117,7 +117,7 @@ class SurveySchema(Schema):
 
 class FeedbackSchema(Schema):
     option_id = fields.Int(required=True)
-    email = fields.Email(required=True)
+    email = fields.Email(required=False)
     comment = fields.Str()
 
 class LoginForm(FlaskForm):
@@ -142,9 +142,15 @@ class CreateSurveyForm(FlaskForm):
     options = FieldList(StringField('Option', validators=[DataRequired(), Length(max=200)]), min_entries=2, max_entries=10)
     submit = SubmitField('Create Survey')
 
+# class SurveySubmissionForm(FlaskForm):
+#     option = RadioField('Option', coerce=int, validators=[DataRequired()])
+#     email = StringField('Email', validators=[Email(), Length(max=100)])
+#     comment = TextAreaField('Comment', validators=[Length(max=500)])
+#     submit = SubmitField('Submit')
+
 class SurveySubmissionForm(FlaskForm):
     option = RadioField('Option', coerce=int, validators=[DataRequired()])
-    email = StringField('Email', validators=[Email(), Length(max=100)])
+    email = StringField('Email', validators=[Optional(), Email(), Length(max=100)])
     comment = TextAreaField('Comment', validators=[Length(max=500)])
     submit = SubmitField('Submit')
 
@@ -194,24 +200,6 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
-# def login():
-#     if current_user.is_authenticated:
-#         return redirect(url_for('index'))
-#     form = LoginForm()
-#     app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
-#     if form.validate_on_submit():
-#         user = User.query.filter_by(email=form.email.data).first()
-#         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
-#             login_user(user, remember=True)
-#             next_page = request.args.get('next')
-#             #return redirect(next_page) if next_page else redirect(url_for('index'))
-#             if not next_page or not is_safe_url(next_page):
-#                 next_page = url_for('index')
-#             return redirect(next_page)
-#         else:
-#             flash('Login unsuccessful. Please check email and password')
-#             app.logger.warning(f'Failed login attempt for email: {form.email.data}')
-#     return render_template('login.html', title='Login', form=form)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
