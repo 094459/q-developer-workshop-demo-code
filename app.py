@@ -1,5 +1,6 @@
 import logging
-from flask import Flask, request, jsonify, render_template, redirect, url_for, flash
+from logging.handlers import RotatingFileHandler
+from flask import Flask, make_response, request, jsonify, render_template, redirect, url_for, flash, session, abort
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -9,15 +10,47 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from marshmallow import Schema, fields, validate, ValidationError
 from flask_migrate import Migrate
+from flask_wtf import FlaskForm, CSRFProtect
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, RadioField, FieldList
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Regexp
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+import bleach
 import csv
 import os
-import waitress
+from waitress import serve
 from io import BytesIO, StringIO
 from flask import send_file
+from urllib.parse import urlparse, urljoin
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///customer_survey.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback_secret_key')  # Use environment variable
+app.config['SESSION_COOKIE_SECURE'] = False  # Ensure secure cookies in production
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['REMEMBER_COOKIE_SECURE'] = False
+app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+app.config['SESSION_TYPE'] = 'filesystem'
+
+csrf = CSRFProtect(app)
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+# Set up logging
+if not app.debug:
+    file_handler = RotatingFileHandler('app.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Application startup')
 app.config['SECRET_KEY'] = 'your-secret-key'  # Change this!
 db = SQLAlchemy(app)
 
@@ -87,6 +120,34 @@ class FeedbackSchema(Schema):
     email = fields.Email(required=True)
     comment = fields.Str()
 
+class LoginForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Log In')
+
+class RegistrationForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[
+        DataRequired(),
+        Length(min=8, message='Password must be at least 8 characters long'),
+        Regexp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$',
+               message='Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character')
+    ])
+    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password', message='Passwords must match')])
+    submit = SubmitField('Register')
+
+class CreateSurveyForm(FlaskForm):
+    title = StringField('Title', validators=[DataRequired(), Length(max=100)])
+    description = StringField('Description', validators=[Length(max=500)])
+    options = FieldList(StringField('Option', validators=[DataRequired(), Length(max=200)]), min_entries=2, max_entries=10)
+    submit = SubmitField('Create Survey')
+
+class SurveySubmissionForm(FlaskForm):
+    option = RadioField('Option', coerce=int, validators=[DataRequired()])
+    email = StringField('Email', validators=[Email(), Length(max=100)])
+    comment = TextAreaField('Comment', validators=[Length(max=500)])
+    submit = SubmitField('Submit')
+
 def get_yoda_wisdom():
     import random
     
@@ -101,57 +162,103 @@ def get_yoda_wisdom():
     
     return random.choice(yoda_quotes)
 
+def is_safe_url(target):
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
+
+
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        user = User.query.filter_by(email=email).first()
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
         if user:
             flash('Email address already exists')
             return redirect(url_for('register'))
-        new_user = User(email=email, password_hash=bcrypt.generate_password_hash(password).decode('utf-8'))
-        db.session.add(new_user)
-        db.session.commit()
-        flash('Congratulations, you are now a registered user!')
-        return redirect(url_for('login'))
-    return render_template('register.html', title='Register')
+        try:
+            new_user = User(email=form.email.data, password_hash=bcrypt.generate_password_hash(form.password.data).decode('utf-8'))
+            db.session.add(new_user)
+            db.session.commit()
+            app.logger.info(f'New user registered: {form.email.data}')
+            flash('Congratulations, you are now a registered user!')
+            return redirect(url_for('login'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error during user registration: {str(e)}')
+            flash('An error occurred during registration. Please try again.')
+    return render_template('register.html', title='Register', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+# def login():
+#     if current_user.is_authenticated:
+#         return redirect(url_for('index'))
+#     form = LoginForm()
+#     app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+#     if form.validate_on_submit():
+#         user = User.query.filter_by(email=form.email.data).first()
+#         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
+#             login_user(user, remember=True)
+#             next_page = request.args.get('next')
+#             #return redirect(next_page) if next_page else redirect(url_for('index'))
+#             if not next_page or not is_safe_url(next_page):
+#                 next_page = url_for('index')
+#             return redirect(next_page)
+#         else:
+#             flash('Login unsuccessful. Please check email and password')
+#             app.logger.warning(f'Failed login attempt for email: {form.email.data}')
+#     return render_template('login.html', title='Login', form=form)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        user = User.query.filter_by(email=email).first()
-        if user and bcrypt.check_password_hash(user.password_hash, password):
-            login_user(user)
-            flash('You have been logged in!')
-            return redirect(url_for('index'))
+    
+    form = LoginForm()
+    app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+    
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
+            login_user(user, remember=True)
+            next_page = request.args.get('next')
+            
+            # Validate and sanitize the 'next' parameter
+            if next_page:
+                if not is_safe_url(next_page):
+                    app.logger.warning(f'Potentially malicious redirect attempt to: {next_page}')
+                    abort(400)  # Bad Request
+            else:
+                next_page = url_for('index')
+            
+            return redirect(next_page)
         else:
             flash('Login unsuccessful. Please check email and password')
-    return render_template('login.html', title='Login')
+            app.logger.warning(f'Failed login attempt for email: {form.email.data}')
+    
+    return render_template('login.html', title='Login', form=form)
 
 @app.route('/create_survey', methods=['GET', 'POST'])
 @login_required
 def create_survey():
-    if request.method == 'POST':
-        title = request.form.get('title')
-        description = request.form.get('description')
-        options = request.form.get('options').split('\n')
-        
-        new_survey = Survey(title=title, description=description, creator_id=current_user.id)
+    form = CreateSurveyForm()
+    if form.validate_on_submit():
+        new_survey = Survey(
+            title=bleach.clean(form.title.data),
+            description=bleach.clean(form.description.data),
+            creator_id=current_user.id
+        )
         db.session.add(new_survey)
-        for option_text in options:
-            option = SurveyOption(text=option_text.strip(), survey=new_survey)
-            db.session.add(option)
+        for option in form.options.data:
+            if option.strip():  # Only add non-empty options
+                option = SurveyOption(text=bleach.clean(option.strip()), survey=new_survey)
+                db.session.add(option)
         db.session.commit()
         flash('Your survey has been created!')
         return redirect(url_for('index'))
-    return render_template('create_survey.html', title='Create Survey')
+    return render_template('create_survey.html', title='Create Survey', form=form)
 
 @app.route('/')
 @app.route('/index')
@@ -164,23 +271,27 @@ def index():
 @app.route('/survey/<int:survey_id>', methods=['GET', 'POST'])
 def survey(survey_id):
     survey = Survey.query.get_or_404(survey_id)
-    if request.method == 'POST':
-        option_id = request.form.get('option')
-        email = request.form.get('email') or None
-        comment = request.form.get('comment')
-        
-        option = SurveyOption.query.get(option_id)
+    form = SurveySubmissionForm()
+    form.option.choices = [(option.id, option.text) for option in survey.options]
+    
+    if form.validate_on_submit():
+        option = SurveyOption.query.get(form.option.data)
         if not option or option.survey_id != survey.id:
             flash('Invalid option selected')
             return redirect(url_for('survey', survey_id=survey_id))
         
-        feedback = Feedback(survey_id=survey_id, option_id=option_id, user_email=email, comment=comment)
+        feedback = Feedback(
+            survey_id=survey_id,
+            option_id=form.option.data,
+            user_email=bleach.clean(form.email.data) if form.email.data else None,
+            comment=bleach.clean(form.comment.data)
+        )
         db.session.add(feedback)
         db.session.commit()
         flash('Thank you for your feedback!')
         return redirect(url_for('index'))
     
-    return render_template('survey.html', title=survey.title, survey=survey)
+    return render_template('survey.html', title=bleach.clean(survey.title), survey=survey, form=form)
 
 @app.route('/survey/<int:survey_id>/results')
 @login_required
@@ -264,13 +375,41 @@ def export_survey_results(survey_id):
 def about():
     wisdom = get_yoda_wisdom()  # This function should be defined in your app.py
     return render_template('about.html', wisdom=wisdom)
+
 @app.route('/logout')
 @login_required
 def logout():
+    app.logger.info(f"User {current_user.id} logging out")
     logout_user()
-    return redirect(url_for('index'))
+    session.clear()  # Clear the entire session
+    
+    response = make_response(redirect(url_for('index')))
+    
+    if 'remember_token' in request.cookies:
+        response.set_cookie('remember_token', 
+                            value='',  # Clear the cookie value
+                            expires=0,  # Make the cookie expire immediately
+                            secure=False,  # Only send over HTTPS
+                            httponly=True,  # Prevent client-side script access
+                            samesite='Lax')  # Protect against CSRF
+    
+    app.logger.info("User logged out and session cleared")
+    flash('You have been logged out.')
+    return response
+
 
 if __name__ == '__main__':
+    # Add security headers
+    @app.after_request
+    def add_security_headers(response):
+        csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; form-action 'self'"
+        response.headers['Content-Security-Policy'] = csp
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        return response
+
     with app.app_context():
         db.create_all()
     # Get debug mode from environment variable, default to False

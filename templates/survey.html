@@ -1,21 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>{{ survey.title }}</h1>
-<p>{{ survey.description }}</p>
+<h1>{{ survey.title|e }}</h1>
+<p>{{ survey.description|e }}</p>
 <form method="POST">
-    {% for option in survey.options %}
+    {{ form.hidden_tag() }}
     <div>
-        <input type="radio" id="option{{ option.id }}" name="option" value="{{ option.id }}" required>
-        <label for="option{{ option.id }}">{{ option.text }}</label>
+        {{ form.option.label }}
+        {{ form.option }}
     </div>
-    {% endfor %}
-    <label for="email">Email: (Optional)</label>
-    <!-- <input type="email" id="email" name="email" required> -->
-    <input type="email" class="form-control" id="email" name="email">
-    <label for="comment">Comment:</label>
-    <textarea id="comment" name="comment"></textarea>
-    <button type="submit">Submit Feedback</button>
+    <div>
+        {{ form.email.label }}
+        {{ form.email(class="form-control") }}
+    </div>
+    <div>
+        {{ form.comment.label }}
+        {{ form.comment }}
+    </div>
+    {{ form.submit(class="btn btn-primary") }}
 </form>
 
 {% if current_user.is_authenticated and current_user.id == survey.creator_id %}

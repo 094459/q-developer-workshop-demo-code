@@ -3,12 +3,23 @@
 {% block content %}
 <h1>Create Survey</h1>
 <form method="POST">
-    <label for="title">Title:</label>
-    <input type="text" id="title" name="title" required>
-    <label for="description">Description:</label>
-    <textarea id="description" name="description"></textarea>
-    <label for="options">Options (one per line):</label>
-    <textarea id="options" name="options" required></textarea>
-    <button type="submit">Create Survey</button>
+    {{ form.hidden_tag() }}
+    <div>
+        {{ form.title.label }}
+        {{ form.title() }}
+    </div>
+    <div>
+        {{ form.description.label }}
+        {{ form.description() }}
+    </div>
+    <div>
+        {{ form.options.label }}
+        {% for option in form.options %}
+            <div>
+                {{ option() }}
+            </div>
+        {% endfor %}
+    </div>
+    {{ form.submit() }}
 </form>
 {% endblock %}

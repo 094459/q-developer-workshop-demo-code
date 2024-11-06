@@ -76,12 +76,12 @@
 </head>
 <body>
     <div class="results-container">
-        <h1>Survey Results: {{ survey.title }}</h1>
+        <h1>Survey Results: {{ survey.title|e }}</h1>
         
         <div class="survey-info">
             <p><strong>Total Responses:</strong> {{ total_responses }}</p>
             {% if survey.description %}
-                <p><strong>Description:</strong> {{ survey.description }}</p>
+                <p><strong>Description:</strong> {{ survey.description|e }}</p>
             {% endif %}
         </div>
 
@@ -93,7 +93,7 @@
 
         {% for option_id, result in results.items() %}
             <div class="option-result">
-                <div class="option-text">{{ result.text }}</div>
+                <div class="option-text">{{ result.text|e }}</div>
                 <div class="progress-bar">
                     <div class="progress" style="width: {{ result.percentage }}%">
                         {{ result.percentage }}% ({{ result.count }} votes)
@@ -103,7 +103,7 @@
                     <div class="comments">
                         <h4>Comments:</h4>
                         {% for comment in result.comments %}
-                            <div class="comment">{{ comment }}</div>
+                            <div class="comment">{{ comment|e }}</div>
                         {% endfor %}
                     </div>
                 {% endif %}
