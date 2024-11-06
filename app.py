@@ -9,6 +9,9 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from marshmallow import Schema, fields, validate, ValidationError
 from flask_migrate import Migrate
+import csv
+from io import BytesIO, StringIO
+from flask import send_file
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///customer_survey.db'
@@ -197,6 +200,52 @@ def survey_results(survey_id):
                          survey=survey,
                          results=results,
                          total_responses=total_responses)
+
+
+@app.route('/survey/<int:survey_id>/export', methods=['GET'])
+@login_required
+def export_survey_results(survey_id):
+    survey = Survey.query.get_or_404(survey_id)
+    if survey.creator_id != current_user.id:
+        flash('You do not have permission to export these results')
+        return redirect(url_for('index'))
+
+    include_email = request.args.get('include_email', 'false').lower() == 'true'
+   
+    feedbacks = Feedback.query.filter_by(survey_id=survey_id).all()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    header = ['Timestamp', 'Selected Option']
+    if include_email:
+        header.extend(['Email', 'Comment'])
+    else:
+        header.append('Comment')
+    writer.writerow(header)
+    
+    # Write each feedback as a row
+    for feedback in feedbacks:
+        row = [
+            feedback.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            feedback.selected_option.text
+        ]
+        if include_email:
+            row.extend([feedback.user_email or '', feedback.comment or ''])
+        else:
+            row.append(feedback.comment or '')
+        writer.writerow(row)
+    
+    output.seek(0)
+    
+    filename = f"{survey.title}_results.csv"
+    return send_file(BytesIO(output.getvalue().encode('utf-8')),
+                     mimetype='text/csv',
+                     as_attachment=True,
+                     download_name=filename)
+
+
 
 @app.route('/logout')
 @login_required

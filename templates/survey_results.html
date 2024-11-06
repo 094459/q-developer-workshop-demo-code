@@ -85,6 +85,12 @@
             {% endif %}
         </div>
 
+        <div class="export-options">
+            <h3>Export Results</h3>
+            <a href="{{ url_for('export_survey_results', survey_id=survey.id, include_email=false) }}" class="btn btn-primary">Export CSV (without emails)</a>
+            <a href="{{ url_for('export_survey_results', survey_id=survey.id, include_email=true) }}" class="btn btn-primary">Export CSV (with emails)</a>
+        </div>
+
         {% for option_id, result in results.items() %}
             <div class="option-result">
                 <div class="option-text">{{ result.text }}</div>
