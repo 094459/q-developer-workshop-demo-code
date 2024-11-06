@@ -8,11 +8,15 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from marshmallow import Schema, fields, validate, ValidationError
+from flask_migrate import Migrate
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///customer_survey.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key'  # Change this!
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -59,7 +63,7 @@ class Feedback(db.Model):
     id = Column(Integer, primary_key=True)
     survey_id = Column(Integer, ForeignKey('surveys.id'), nullable=False)
     option_id = Column(Integer, ForeignKey('survey_options.id'), nullable=False)
-    user_email = Column(String, nullable=False)
+    user_email = Column(String, nullable=True)
     comment = Column(String)
     created_at = Column(DateTime, server_default=func.now())
     selected_option = relationship("SurveyOption", back_populates="feedbacks")
@@ -144,7 +148,7 @@ def survey(survey_id):
     survey = Survey.query.get_or_404(survey_id)
     if request.method == 'POST':
         option_id = request.form.get('option')
-        email = request.form.get('email')
+        email = request.form.get('email') or None
         comment = request.form.get('comment')
         
         option = SurveyOption.query.get(option_id)

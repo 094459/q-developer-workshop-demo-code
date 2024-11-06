@@ -10,8 +10,9 @@
         <label for="option{{ option.id }}">{{ option.text }}</label>
     </div>
     {% endfor %}
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" required>
+    <label for="email">Email: (Optional)</label>
+    <!-- <input type="email" id="email" name="email" required> -->
+    <input type="email" class="form-control" id="email" name="email">
     <label for="comment">Comment:</label>
     <textarea id="comment" name="comment"></textarea>
     <button type="submit">Submit Feedback</button>
