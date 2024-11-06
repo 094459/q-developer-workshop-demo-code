@@ -38,7 +38,7 @@ csrf = CSRFProtect(app)
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=app.config.get('RATELIMIT_DEFAULT', ["200 per day", "50 per hour"])
 )
 
 # Set up logging
@@ -51,7 +51,7 @@ if not app.debug:
     app.logger.addHandler(file_handler)
     app.logger.setLevel(logging.INFO)
     app.logger.info('Application startup')
-app.config['SECRET_KEY'] = 'your-secret-key'  # Change this!
+
 db = SQLAlchemy(app)
 
 bcrypt = Bcrypt(app)
@@ -174,6 +174,12 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     form = RegistrationForm()
+
+    if app.config.get('WTF_CSRF_ENABLED', True):
+        app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+    else:
+        app.logger.info("CSRF Protection is disabled.")
+
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
         if user:
@@ -193,31 +199,17 @@ def register():
     return render_template('register.html', title='Register', form=form)
 
 @app.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
-# def login():
-#     if current_user.is_authenticated:
-#         return redirect(url_for('index'))
-#     form = LoginForm()
-#     app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
-#     if form.validate_on_submit():
-#         user = User.query.filter_by(email=form.email.data).first()
-#         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
-#             login_user(user, remember=True)
-#             next_page = request.args.get('next')
-#             #return redirect(next_page) if next_page else redirect(url_for('index'))
-#             if not next_page or not is_safe_url(next_page):
-#                 next_page = url_for('index')
-#             return redirect(next_page)
-#         else:
-#             flash('Login unsuccessful. Please check email and password')
-#             app.logger.warning(f'Failed login attempt for email: {form.email.data}')
-#     return render_template('login.html', title='Login', form=form)
+#@limiter.limit("5 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     
     form = LoginForm()
-    app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+    #app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+    if app.config.get('WTF_CSRF_ENABLED', True):
+        app.logger.info(f"CSRF Token: {form.csrf_token.current_token}")
+    else:
+        app.logger.info("CSRF Protection is disabled.")
     
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
