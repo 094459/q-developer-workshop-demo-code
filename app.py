@@ -167,6 +167,14 @@ class SurveySubmissionForm(FlaskForm):
     submit = SubmitField('Submit')
 
 def get_yoda_wisdom():
+    """
+    Get a random Yoda quote.
+
+    This function returns a randomly selected quote from Yoda, the wise Jedi Master.
+
+    Returns:
+        str: A randomly selected Yoda quote.
+    """
     import random
     
     yoda_quotes = [
@@ -181,6 +189,18 @@ def get_yoda_wisdom():
     return random.choice(yoda_quotes)
 
 def is_safe_url(target):
+    """
+    Check if a URL is safe to redirect to.
+
+    This function verifies that the target URL has the same netloc as the request host URL
+    and uses either 'http' or 'https' scheme.
+
+    Args:
+        target (str): The URL to check.
+
+    Returns:
+        bool: True if the URL is safe, False otherwise.
+    """
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
@@ -189,6 +209,17 @@ def is_safe_url(target):
 @app.route('/register', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def register():
+    """
+    Handle user registration.
+
+    This function manages the user registration process. It checks if the user is already
+    authenticated, validates the registration form, checks for existing email, creates a new
+    user, and handles any exceptions during the process.
+
+    Returns:
+        A rendered template for the registration page or a redirect to the login page
+        upon successful registration.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     form = RegistrationForm()
@@ -253,6 +284,17 @@ def login():
 @app.route('/create_survey', methods=['GET', 'POST'])
 @login_required
 def create_survey():
+    """
+    Handle survey creation.
+
+    This function manages the survey creation process. It validates the survey
+    creation form, creates a new survey with the provided options, and saves it
+    to the database.
+
+    Returns:
+        A rendered template for the survey creation page or a redirect to the
+        index page upon successful survey creation.
+    """
     form = CreateSurveyForm()
     if form.validate_on_submit():
         new_survey = Survey(
@@ -280,6 +322,20 @@ def index():
 
 @app.route('/survey/<int:survey_id>', methods=['GET', 'POST'])
 def survey(survey_id):
+    """
+    Handle survey submission.
+
+    This function manages the survey submission process. It retrieves the survey,
+    creates a form with the survey options, validates the submission, and saves
+    the feedback to the database.
+
+    Args:
+        survey_id (int): The ID of the survey to be displayed or submitted.
+
+    Returns:
+        A rendered template for the survey page or a redirect to the index page
+        upon successful submission.
+    """
     survey = Survey.query.get_or_404(survey_id)
     form = SurveySubmissionForm()
     form.option.choices = [(option.id, option.text) for option in survey.options]
@@ -306,6 +362,20 @@ def survey(survey_id):
 @app.route('/survey/<int:survey_id>/results')
 @login_required
 def survey_results(survey_id):
+    """
+    Display survey results.
+
+    This function retrieves and calculates the results for a specific survey.
+    It checks if the current user has permission to view the results, calculates
+    the statistics for each option, and renders the results template.
+
+    Args:
+        survey_id (int): The ID of the survey to display results for.
+
+    Returns:
+        A rendered template with the survey results or a redirect to the index
+        page if the user doesn't have permission.
+    """
     # Get the survey and verify the current user is the creator
     survey = Survey.query.get_or_404(survey_id)
     if survey.creator_id != current_user.id:
@@ -341,6 +411,20 @@ def survey_results(survey_id):
 @app.route('/survey/<int:survey_id>/export', methods=['GET'])
 @login_required
 def export_survey_results(survey_id):
+    """
+    Export survey results to CSV.
+
+    This function generates a CSV file containing the results of a specific survey.
+    It checks if the current user has permission to export the results, retrieves
+    the feedback data, and creates a CSV file with the survey responses.
+
+    Args:
+        survey_id (int): The ID of the survey to export results for.
+
+    Returns:
+        A CSV file attachment containing the survey results or a redirect to the
+        index page if the user doesn't have permission.
+    """
     survey = Survey.query.get_or_404(survey_id)
     if survey.creator_id != current_user.id:
         flash('You do not have permission to export these results')
