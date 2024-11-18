@@ -1,0 +1,12 @@
+name: customer_feedback
+description: Customer feedback and comments
+columns:
+  - name: customer_id
+    type: VARCHAR(3)
+    description: The unique identifier associated with each customer
+  - name: comment
+    type: VARCHAR(50)
+    description: Free text input
+  - name: created_at
+    type: TIMESTAMP WITH TIME ZONE
+    description: The timestamp noting when the customer create feedback entry
